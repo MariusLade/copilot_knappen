@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for Copilot Knappen.
+  $VERSION$, $PUBLISHER$ and $ARCH$ are filled in by scripts/build-msix.ps1.
+
+  The interesting part is the "com.microsoft.windows.copilotkeyprovider" app extension: it registers the app as a
+  Microsoft Copilot hardware key provider, so it can be picked in Settings > Personalization > Text input >
+  "Customize Copilot key on keyboard". Key presses are delivered through the copilotknappen: protocol:
+    single tap         -> copilotknappen://?state=Tap   (toggle the launcher)
+    press-and-hold     -> copilotknappen://?state=Down  (show the launcher)
+    release after hold -> copilotknappen://?state=Up
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 desktop6 rescap">
+
+  <Identity
+    Name="CopilotKnappen"
+    Publisher="$PUBLISHER$"
+    Version="$VERSION$"
+    ProcessorArchitecture="$ARCH$" />
+
+  <Properties>
+    <DisplayName>Copilot Knappen</DisplayName>
+    <PublisherDisplayName>Copilot Knappen</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>A smart command bar for the Copilot key: search, open apps, control Spotify and volume.</Description>
+    <!-- Programs, browsers and shell commands started from the launcher must see the real file system and registry. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="CopilotKnappen.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Copilot Knappen"
+        Description="Smart command bar for the Copilot key"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Protocol used by the Copilot key (and handy for scripts: copilotknappen://settings). -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="copilotknappen" Parameters="&quot;%1&quot;">
+            <uap:DisplayName>Copilot Knappen</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <!-- Microsoft Copilot hardware key provider registration. -->
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension
+            Name="com.microsoft.windows.copilotkeyprovider"
+            Id="CopilotKnappen"
+            DisplayName="Copilot Knappen"
+            Description="Smart command bar: search, apps, Spotify, YouTube and volume"
+            PublicFolder="Public">
+            <uap3:Properties>
+              <SingleTap>copilotknappen://?state=Tap</SingleTap>
+              <PressAndHoldStart>copilotknappen://?state=Down</PressAndHoldStart>
+              <PressAndHoldStop>copilotknappen://?state=Up</PressAndHoldStop>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+</Package>

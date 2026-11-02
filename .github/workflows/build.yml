@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Unit tests (intent detection)
+        run: dotnet test tests/CopilotKnappen.Core.Tests -c Release
+
+  package:
+    needs: test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Decode signing certificate (optional secret)
+        id: cert
+        shell: powershell
+        env:
+          PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        run: |
+          if ($env:PFX_BASE64) {
+            $path = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+            [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:PFX_BASE64))
+            "path=$path" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build MSIX
+        shell: powershell
+        env:
+          PFX_PATH: ${{ steps.cert.outputs.path }}
+          PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+          PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+        run: |
+          $params = @{ Arch = '${{ matrix.arch }}'; Version = "1.0.${{ github.run_number }}.0" }
+          if ($env:PFX_PATH) {
+            $params.CertificatePath = $env:PFX_PATH
+            $params.CertificatePassword = $env:PFX_PASSWORD
+            $params.Publisher = $env:PUBLISHER
+          }
+          ./scripts/build-msix.ps1 @params
+
+      - name: Collect installer files
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item artifacts/*.msix, artifacts/CopilotKnappen.cer, scripts/install.ps1 dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CopilotKnappen-${{ matrix.arch }}
+          path: dist/
