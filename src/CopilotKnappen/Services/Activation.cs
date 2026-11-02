@@ -18,8 +18,8 @@ public enum ActivationKind
 
 /// <summary>
 /// Works out why we were started. The Copilot key provider extension in the package manifest activates the
-/// app through the copilotknappen:// protocol with ?state=Tap, ?state=Down or ?state=Up, which arrives as a
-/// command-line argument (see the Parameters="%1" on the protocol declaration).
+/// app through the copilotknappen:// protocol with ?state=Tap, ?state=Down or ?state=Up. Packaged apps read
+/// that through AppInstance.GetActivatedEventArgs(); a URI passed on the command line is accepted too.
 /// </summary>
 public static class ActivationParser
 {

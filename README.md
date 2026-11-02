@@ -80,11 +80,7 @@ a signed `.msix`.
 ### From a CI build
 
 Every push builds `x64` and `arm64` packages (GitHub Actions → *Build* → artifacts). Download
-`CopilotKnappen-x64`, unzip it, and run in PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-```
+`CopilotKnappen-x64`, unzip it, and double-click **`install.cmd`** (or run it from a command prompt).
 
 This trusts the signing certificate (one UAC prompt), installs the package and opens the right Settings page.
 Then choose **Settings → Personalization → Text input → Customize Copilot key on keyboard → Copilot Knappen**.
@@ -99,10 +95,16 @@ Then choose **Settings → Personalization → Text input → Customize Copilot 
 Requirements: Windows 10 2004+ / Windows 11, the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0),
 and the Windows SDK (for `makeappx.exe` and `signtool.exe`).
 
-```powershell
-.\scripts\build-msix.ps1            # -> artifacts\CopilotKnappen_1.0.0.0_x64.msix + CopilotKnappen.cer
-.\scripts\install.ps1
+From a command prompt (`cmd`) in the repository folder:
+
+```bat
+scripts\build-msix.cmd
+scripts\install.cmd
 ```
+
+The `.cmd` files just run the matching `.ps1` scripts with PowerShell. Typing a `.ps1` name in `cmd`
+opens it in Notepad instead of running it. From PowerShell you can run `.\scripts\build-msix.ps1` directly.
+The build writes `artifacts\CopilotKnappen_1.0.0.0_x64.msix` and `artifacts\CopilotKnappen.cer`.
 
 For quick development without signing, turn on Developer Mode and run `.\scripts\register-dev.ps1`. That
 registers the unpacked layout so you can test with `start copilotknappen://?state=Tap`. Windows only offers

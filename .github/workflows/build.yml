@@ -59,7 +59,7 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory dist | Out-Null
-          Copy-Item artifacts/*.msix, artifacts/CopilotKnappen.cer, scripts/install.ps1 dist/
+          Copy-Item artifacts/*.msix, artifacts/CopilotKnappen.cer, scripts/install.ps1, scripts/install.cmd dist/
 
       - uses: actions/upload-artifact@v4
         with:

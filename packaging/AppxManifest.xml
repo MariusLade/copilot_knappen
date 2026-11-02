@@ -57,7 +57,7 @@
       <Extensions>
         <!-- Protocol used by the Copilot key (and handy for scripts: copilotknappen://settings). -->
         <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="copilotknappen" Parameters="&quot;%1&quot;">
+          <uap:Protocol Name="copilotknappen">
             <uap:DisplayName>Copilot Knappen</uap:DisplayName>
           </uap:Protocol>
         </uap:Extension>
