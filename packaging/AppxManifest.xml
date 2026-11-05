@@ -5,10 +5,11 @@
 
   The interesting part is the "com.microsoft.windows.copilotkeyprovider" app extension: it registers the app as a
   Microsoft Copilot hardware key provider, so it can be picked in Settings > Personalization > Text input >
-  "Customize Copilot key on keyboard". Key presses are delivered through the copilotknappen: protocol:
-    single tap         -> copilotknappen://?state=Tap   (toggle the launcher)
-    press-and-hold     -> copilotknappen://?state=Down  (show the launcher)
-    release after hold -> copilotknappen://?state=Up
+  "Customize Copilot key on keyboard".
+    - App not running: Windows starts it through copilotknappen://?state=Tap
+    - App running:     Windows does not start it again. It posts window message 0x8001 (wParam 0) to the
+                       launcher window, which registered for this "fast path" at startup
+                       (src/CopilotKnappen/Services/CopilotKeyFastPath.cs).
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -71,9 +72,9 @@
             Description="Smart command bar: search, apps, Spotify, YouTube and volume"
             PublicFolder="Public">
             <uap3:Properties>
-              <SingleTap>copilotknappen://?state=Tap</SingleTap>
-              <PressAndHoldStart>copilotknappen://?state=Down</PressAndHoldStart>
-              <PressAndHoldStop>copilotknappen://?state=Up</PressAndHoldStop>
+              <!-- Cold start: URI activation. While running: window message 0x8001 with wParam = MessageWParam
+                   (the "fast path", registered in CopilotKeyFastPath.cs). Keep the value in sync with the code. -->
+              <SingleTap MessageWParam="0">copilotknappen://?state=Tap</SingleTap>
             </uap3:Properties>
           </uap3:AppExtension>
         </uap3:Extension>

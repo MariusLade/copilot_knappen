@@ -13,6 +13,7 @@ public partial class App : Application
     private SettingsStore _store = null!;
     private TrayIcon? _tray;
     private HotkeyManager? _hotkey;
+    private CopilotKeyFastPath? _fastPath;
     private LauncherWindow? _launcher;
     private SettingsWindow? _settingsWindow;
 
@@ -49,8 +50,20 @@ public partial class App : Application
         Catalog.RefreshInBackground(force: true);
 
         _launcher = new LauncherWindow();
-        var hwnd = new WindowInteropHelper(_launcher).EnsureHandle();
-        _hotkey = new HotkeyManager(HwndSource.FromHwnd(hwnd));
+        _launcher.InitializeHidden();
+        var source = HwndSource.FromHwnd(new WindowInteropHelper(_launcher).Handle);
+
+        // Copilot key presses while we're running arrive as window messages (see CopilotKeyFastPath).
+        _fastPath = new CopilotKeyFastPath(source);
+        _fastPath.KeyPressed += wParam => HandleActivation(wParam switch
+        {
+            CopilotKeyFastPath.PressAndHoldStart => ActivationKind.Show,
+            CopilotKeyFastPath.PressAndHoldStop => ActivationKind.KeyReleased,
+            _ => ActivationKind.Toggle,
+        });
+        _launcher.SummonOnActivation = !_fastPath.Register();
+
+        _hotkey = new HotkeyManager(source);
         _hotkey.Pressed += () => HandleActivation(ActivationKind.Toggle);
 
         _tray = new TrayIcon(
@@ -123,12 +136,14 @@ public partial class App : Application
     /// <summary>Called when the launcher hides; quits if the user doesn't want a background instance.</summary>
     public void ExitIfIdle()
     {
-        if (!Settings.KeepRunningInBackground && _settingsWindow is null && _launcher is { IsVisible: false })
+        if (!Settings.KeepRunningInBackground && _settingsWindow is null && _launcher is { IsShown: false })
             ExitApp();
     }
 
     public void ExitApp()
     {
+        _fastPath?.Dispose();
+        _fastPath = null;
         _hotkey?.Dispose();
         _tray?.Dispose();
         _instance?.Dispose();
@@ -140,6 +155,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _fastPath?.Dispose();
         _hotkey?.Dispose();
         _tray?.Dispose();
         _instance?.Dispose();

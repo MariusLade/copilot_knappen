@@ -22,6 +22,8 @@ public partial class LauncherWindow : Window
     private int _historyIndex = -1;
     private bool _busy;
     private bool _settingText;
+    private bool _shown;
+    private bool _cloakHiding;
     private DateTime _lastAutoHide = DateTime.MinValue;
     private ResolvedAction _current = ResolvedAction.None;
 
@@ -30,21 +32,48 @@ public partial class LauncherWindow : Window
         InitializeComponent();
         Deactivated += (_, _) =>
         {
-            if (!IsVisible) return;
+            if (!_shown) return;
             _lastAutoHide = DateTime.UtcNow;
             HideLauncher();
         };
+        Activated += (_, _) =>
+        {
+            // Without the Copilot key fast path, Windows "switches to" the running provider's window when the key
+            // is pressed. Treat activation of our (invisible) window as a request to show the launcher.
+            if (!_shown && SummonOnActivation) Dispatcher.BeginInvoke(ShowLauncher);
+        };
         App.Current.Catalog.Refreshed += () => Dispatcher.BeginInvoke(() =>
         {
-            if (IsVisible) UpdatePreview();
+            if (_shown) UpdatePreview();
         });
     }
 
+    /// <summary>Whether the launcher is on screen (the window itself stays "visible" but cloaked when hidden).</summary>
+    public bool IsShown => _shown;
+
+    /// <summary>Show the launcher when Windows activates our hidden window (fallback when the fast path failed).</summary>
+    public bool SummonOnActivation { get; set; }
+
     private IntPtr Handle => new WindowInteropHelper(this).Handle;
+
+    /// <summary>
+    /// Creates the window in its hidden state. Like PowerToys Command Palette, the window is kept visible but
+    /// DWM-cloaked (and click-through) while hidden, so Windows always has a live window of ours to deliver
+    /// Copilot key presses to. Falls back to a plain hidden window if cloaking is unavailable.
+    /// </summary>
+    public void InitializeHidden()
+    {
+        var hwnd = new WindowInteropHelper(this).EnsureHandle();
+        _cloakHiding = NativeMethods.SetCloaked(hwnd, true);
+        if (!_cloakHiding) return;
+        NativeMethods.SetClickThrough(hwnd, true);
+        Topmost = false;
+        Show(); // ShowActivated=False: no focus change
+    }
 
     public void ToggleLauncher()
     {
-        if (IsVisible)
+        if (_shown)
         {
             HideLauncher();
             return;
@@ -57,6 +86,9 @@ public partial class LauncherWindow : Window
 
     public void ShowLauncher()
     {
+        if (_shown && IsActive) return;
+        _shown = true;
+
         if (!IsVisible)
         {
             Opacity = 0;
@@ -68,6 +100,13 @@ public partial class LauncherWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, CenterOnActiveScreen);
         Opacity = 1;
 
+        if (_cloakHiding)
+        {
+            NativeMethods.SetClickThrough(Handle, false);
+            Topmost = true;
+            NativeMethods.SetCloaked(Handle, false);
+        }
+
         Activate();
         NativeMethods.ForceForeground(Handle);
         Input.Focus();
@@ -78,8 +117,24 @@ public partial class LauncherWindow : Window
 
     public void HideLauncher()
     {
-        if (!IsVisible) return;
-        Hide();
+        if (!_shown) return;
+        _shown = false;
+
+        if (_cloakHiding)
+        {
+            NativeMethods.SetCloaked(Handle, true);
+            NativeMethods.SetClickThrough(Handle, true);
+            Topmost = false;
+            // Hide for a moment so Windows hands the focus back to the right window, then make it "visible"
+            // again (still cloaked) without activating it.
+            NativeMethods.ShowWindow(Handle, NativeMethods.SW_HIDE);
+            NativeMethods.ShowWindow(Handle, NativeMethods.SW_SHOWNA);
+        }
+        else
+        {
+            Hide();
+        }
+
         SetText("");
         _historyIndex = -1;
         if (!_busy) App.Current.ExitIfIdle();
@@ -193,20 +248,20 @@ public partial class LauncherWindow : Window
 
         if (!result.Success)
         {
-            if (!IsVisible) ShowLauncher();
+            if (!_shown) ShowLauncher();
             SetText(text);
             ShowStatus("", result.Message ?? "Something went wrong.", ErrorBrush);
             return;
         }
 
-        if (result.KeepOpen && IsVisible)
+        if (result.KeepOpen && _shown)
         {
             ShowStatus("", result.Message ?? "Done", SuccessBrush);
             Input.SelectAll();
             return;
         }
 
-        if (IsVisible) HideLauncher();
+        if (_shown) HideLauncher();
         else App.Current.ExitIfIdle();
     }
 

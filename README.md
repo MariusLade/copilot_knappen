@@ -60,17 +60,18 @@ Windows 11 lets a packaged app register as a **Microsoft Copilot hardware key pr
   <uap3:AppExtension Name="com.microsoft.windows.copilotkeyprovider" Id="CopilotKnappen"
                      DisplayName="Copilot Knappen" PublicFolder="Public">
     <uap3:Properties>
-      <SingleTap>copilotknappen://?state=Tap</SingleTap>
-      <PressAndHoldStart>copilotknappen://?state=Down</PressAndHoldStart>
-      <PressAndHoldStop>copilotknappen://?state=Up</PressAndHoldStop>
+      <SingleTap MessageWParam="0">copilotknappen://?state=Tap</SingleTap>
     </uap3:Properties>
   </uap3:AppExtension>
 </uap3:Extension>
 ```
 
-Key presses activate the app through its `copilotknappen:` protocol. The first launch keeps a small
-background instance (tray icon). Later presses are handed to it over a named pipe, so the field appears
-straight away. A tap toggles the field, and press-and-hold opens it.
+* **App not running:** Windows starts it through the `copilotknappen:` protocol and the field appears.
+* **App running** (it stays in the tray): Windows does not start it again. It posts a window message to the
+  window that registered for the Copilot key "fast path" (see
+  [`CopilotKeyFastPath.cs`](src/CopilotKnappen/Services/CopilotKeyFastPath.cs)). Each press toggles the field.
+  While hidden, the launcher window stays "visible" to Windows but is cloaked (not drawn) and click-through,
+  so the message always has somewhere to go. PowerToys Command Palette uses the same approach.
 
 The app has to be **MSIX packaged and signed** to show up in the Copilot key settings, so the build produces
 a signed `.msix`.
