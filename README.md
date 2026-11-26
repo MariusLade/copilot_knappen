@@ -15,8 +15,9 @@ the screen, type what you want, and Copilot Knappen works out what you mean:
 | `open …`, `search …`, `google …` | Forces "open" or "web search" |
 | `settings` | Opens the settings panel |
 
-The line under the text field always shows what Enter will do. **Shift+Enter** forces a web search, **Tab**
-completes an app name, **↑/↓** walk through your history, **Esc** closes.
+**Enter** runs the text, **Shift+Enter** forces a web search, **Tab** completes an app name, **↑/↓** walk
+through your history, **Esc** closes. Errors and results (such as the new volume) appear under the text field.
+The launcher and the Start menu are never open at the same time: opening one closes the other.
 
 ## Custom commands
 

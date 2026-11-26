@@ -12,11 +12,8 @@ namespace CopilotKnappen.Views;
 /// <summary>The text field in the middle of the screen.</summary>
 public partial class LauncherWindow : Window
 {
-    private const string DefaultHint = "Try “play daft punk”, “volume 30”, “youtube cats”, “notepad” or “settings”";
-    private static readonly Brush NormalBrush = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
     private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0x7A, 0x7A));
     private static readonly Brush SuccessBrush = new SolidColorBrush(Color.FromRgb(0x7C, 0xDB, 0x9A));
-    private static readonly Brush AccentBrush = new SolidColorBrush(Color.FromRgb(0x4F, 0x8C, 0xFF));
 
     private readonly List<string> _history = [];
     private int _historyIndex = -1;
@@ -26,6 +23,7 @@ public partial class LauncherWindow : Window
     private bool _cloakHiding;
     private DateTime _lastAutoHide = DateTime.MinValue;
     private ResolvedAction _current = ResolvedAction.None;
+    private readonly StartMenuWatcher _startMenu = new();
 
     public LauncherWindow()
     {
@@ -46,6 +44,12 @@ public partial class LauncherWindow : Window
         {
             if (_shown) UpdatePreview();
         });
+        // The launcher and the Start menu are never open together: opening Start closes the launcher...
+        _startMenu.Opened += () =>
+        {
+            if (_shown) HideLauncher();
+        };
+        Closed += (_, _) => _startMenu.Dispose();
     }
 
     /// <summary>Whether the launcher is on screen (the window itself stays "visible" but cloaked when hidden).</summary>
@@ -84,9 +88,26 @@ public partial class LauncherWindow : Window
         ShowLauncher();
     }
 
-    public void ShowLauncher()
+    public void ShowLauncher() => ShowLauncher(dismissStartMenu: true);
+
+    private void ShowLauncher(bool dismissStartMenu)
     {
         if (_shown && IsActive) return;
+
+        // ...and opening the launcher closes Start. Wait for the Escape that closes it to be handled by Start,
+        // so it doesn't reach (and close) the launcher instead.
+        if (dismissStartMenu && StartMenuWatcher.Dismiss())
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                ShowLauncher(dismissStartMenu: false);
+            };
+            timer.Start();
+            return;
+        }
+
         _shown = true;
 
         if (!IsVisible)
@@ -238,7 +259,6 @@ public partial class LauncherWindow : Window
         ExecutionResult result;
         try
         {
-            ShowStatus("", action.Description + "…", NormalBrush);
             result = await app.Executor.ExecuteAsync(action, text);
         }
         finally
@@ -272,52 +292,24 @@ public partial class LauncherWindow : Window
         if (_history.Count > 50) _history.RemoveAt(0);
     }
 
-    // ------------------------------------------------------------------ preview
+    // ------------------------------------------------------------------ status
 
     private void UpdatePreview()
     {
         Placeholder.Visibility = Input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        // Still parsed while typing so Tab can complete the matched app's name.
         _current = App.Current.Parser.Parse(Input.Text);
-        if (_current.Type == ActionType.None)
-            ShowStatus("", DefaultHint, NormalBrush, AccentBrush);
-        else
-            ShowStatus(Glyph(_current), _current.Description, NormalBrush, AccentBrush);
+        StatusBar.Visibility = Visibility.Collapsed;
     }
 
-    private void ShowStatus(string glyph, string text, Brush textBrush, Brush? iconBrush = null)
+    /// <summary>Shows the outcome of a command under the search box until the text changes.</summary>
+    private void ShowStatus(string glyph, string text, Brush brush)
     {
+        StatusBar.Visibility = Visibility.Visible;
         PreviewIcon.Text = glyph;
-        PreviewIcon.Foreground = iconBrush ?? textBrush;
+        PreviewIcon.Foreground = brush;
         PreviewText.Text = text;
-        PreviewText.Foreground = textBrush;
+        PreviewText.Foreground = brush;
         PreviewText.ToolTip = text;
     }
-
-    private static string Glyph(ResolvedAction action) => action.Type switch
-    {
-        ActionType.WebSearch => "",
-        ActionType.OpenUrl => "",
-        ActionType.OpenApp => "",
-        ActionType.RunProgram => action.Target.Contains('\\') || action.Target.Contains('%') ? "" : "",
-        ActionType.ShellCommand => "",
-        ActionType.SpotifySearch => "",
-        ActionType.YouTubeSearch => "",
-        ActionType.Media => action.Target switch
-        {
-            "pause" => "",
-            "next" => "",
-            "previous" => "",
-            _ => "",
-        },
-        ActionType.Volume => action.Target switch
-        {
-            "up" => "",
-            "down" => "",
-            "mute" => "",
-            _ => "",
-        },
-        ActionType.OpenSettings => "",
-        ActionType.Exit => "",
-        _ => "",
-    };
 }
