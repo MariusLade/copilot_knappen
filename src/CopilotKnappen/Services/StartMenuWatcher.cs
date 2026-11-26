@@ -76,7 +76,7 @@ public sealed class StartMenuWatcher : IDisposable
         {
             var path = new StringBuilder(1024);
             var size = path.Capacity;
-            return QueryFullProcessImageName(process, 0, path, ref size) ? Path.GetFileName(path.ToString()) : null;
+            return QueryFullProcessImageName(process, 0, path, ref size) ? System.IO.Path.GetFileName(path.ToString()) : null;
         }
         finally
         {
